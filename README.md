@@ -6,17 +6,20 @@ This demo showcases the advantages of using Uber's fx dependency injection frame
 
 ```
 .
-├── shared/              # Common components used by both approaches
-│   ├── config.go        # Configuration struct
-│   ├── logger.go        # Logging service
-│   ├── database.go      # Database service (mock)
-│   ├── user_service.go  # User business logic
-│   └── server.go        # HTTP server
-├── traditional/         # Manual dependency wiring
+├── shared/                      # Common components used by both approaches
+│   ├── config.go                # Configuration struct with database type
+│   ├── logger.go                # Logging service
+│   ├── database_interface.go    # Database interface
+│   ├── database_inmemory.go     # In-memory database implementation
+│   ├── database_persistent.go   # File-based persistent database
+│   ├── metrics.go               # Metrics collection service
+│   ├── user_service.go          # User business logic
+│   └── server.go                # HTTP server with Echo framework
+├── traditional/                 # Manual dependency wiring
 │   └── main.go     
-├── fx-version/          # Automatic dependency injection with fx
+├── fx-version/                  # Automatic dependency injection with fx
 │   └── main.go
-├── config.json          # Configuration file
+├── config.json                  # Configuration file
 └── README.md
 ```
 
@@ -37,6 +40,7 @@ curl http://localhost:9090/user?id=1
 curl http://localhost:9090/user?id=2
 curl http://localhost:9090/health
 curl http://localhost:9090/config
+curl http://localhost:9090/metrics
 ```
 
 ## Key Differences: Traditional vs FX
@@ -99,29 +103,54 @@ lc.Append(fx.Hook{
 })
 ```
 
-### 3. Adding New Dependencies
+### 3. Adding New Dependencies (e.g., Metrics)
 **Traditional**: Must update every constructor call
 ```go
-// If Database needs a new dependency (e.g., metrics), you must:
-// 1. Update NewDatabase signature
-// 2. Update EVERY place that calls NewDatabase
-// 3. Pass the new dependency through
+// Before: db := shared.NewDatabase(logger, config)
+// After:  db := shared.NewDatabase(logger, config, metrics)
+// Must update EVERY constructor in the chain!
 ```
 
-**FX**: Just declare what you need
+**FX**: Just add one line
 ```go
-// Just add the parameter to your constructor
-func provideDatabase(lc fx.Lifecycle, logger *shared.Logger, 
-    config *shared.Config, metrics *Metrics) *shared.Database {
-    // FX automatically provides metrics
+fx.Provide(
+    shared.NewMetrics,  // Just add this line!
+    // All other providers automatically get metrics injected
+)
+```
+
+### 4. Swapping Implementations (e.g., Database Types)
+**Traditional**: Conditional logic in main function
+```go
+// Must add switch/if statements in main
+var db shared.Database
+switch config.Database.Type {
+case "persistent":
+    db = shared.NewPersistentDatabase(logger, config, metrics)
+default:
+    db = shared.NewInMemoryDatabase(logger, config, metrics)
 }
 ```
 
-### 4. Dependency Graph Validation
+**FX**: Update only the provider function
+```go
+// Only change the provideDatabase function
+// No other code needs to change!
+func provideDatabase(...) shared.Database {
+    switch config.Database.Type {
+    case "persistent":
+        return shared.NewPersistentDatabase(...)
+    default:
+        return shared.NewInMemoryDatabase(...)
+    }
+}
+```
+
+### 5. Dependency Graph Validation
 **Traditional**: Runtime errors if dependencies missing
 **FX**: Compile-time validation of entire dependency graph
 
-### 5. Built-in Debugging
+### 6. Built-in Debugging
 **Traditional**: Manual logging for debugging
 **FX**: Built-in dependency graph visualization and logging
 ```go
@@ -130,7 +159,7 @@ fx.WithLogger(func() fxevent.Logger {
 })
 ```
 
-### 6. Testing Benefits
+### 7. Testing Benefits
 **Traditional**: Hard to mock dependencies
 **FX**: Easy to replace dependencies for testing
 ```go
@@ -140,14 +169,17 @@ fx.New(
 )
 ```
 
-### 7. Configuration Impact
+### 8. Configuration Impact
 The demo shows how configuration affects behavior:
 - **Logger**: Environment tag ([STAGING]) in output
-- **Database**: Cache enabled/disabled, connection pool settings
+- **Database**: 
+  - Type selection (inmemory vs persistent)
+  - Cache enabled/disabled, connection pool settings
 - **UserService**: Rate limiting on/off based on feature flag
 - **Server**: Binds to configured host:port
+- **Metrics**: Tracks HTTP requests, DB queries, cache hits/misses
 
-Try changing `config.json` and see how both versions adapt!
+Try changing `config.json` (e.g., set `"type": "inmemory"`) and see how both versions adapt!
 
 ## When to Use FX
 

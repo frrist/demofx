@@ -10,7 +10,7 @@ import (
 
 // UserService handles user-related operations
 type UserService struct {
-	db           *Database
+	db           Database
 	logger       *Logger
 	metrics      *Metrics
 	rateLimiting bool
@@ -19,7 +19,8 @@ type UserService struct {
 
 // NewUserService creates a new user service
 // NOTE: In v2, we added metrics parameter - another breaking change!
-func NewUserService(db *Database, logger *Logger, config *Config, metrics *Metrics) *UserService {
+// NOTE: In v3, we changed db parameter from *Database to Database interface
+func NewUserService(db Database, logger *Logger, config *Config, metrics *Metrics) *UserService {
 	return &UserService{
 		db:           db,
 		logger:       logger,

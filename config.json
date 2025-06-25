@@ -4,6 +4,7 @@
     "port": "9090"
   },
   "database": {
+    "type": "persistent",
     "max_connections": 20,
     "timeout_seconds": 60,
     "cache_size": 200

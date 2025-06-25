@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Database provides mock database functionality
-type Database struct {
+// InMemoryDatabase provides in-memory database functionality
+type InMemoryDatabase struct {
 	logger         *Logger
 	config         *DatabaseConfig
 	metrics        *Metrics
@@ -15,10 +15,9 @@ type Database struct {
 	cacheEnabled   bool
 }
 
-// NewDatabase creates a new database instance
-// NOTE: In v2, we added metrics parameter - breaking change for traditional setup!
-func NewDatabase(logger *Logger, config *Config, metrics *Metrics) *Database {
-	return &Database{
+// NewInMemoryDatabase creates a new in-memory database instance
+func NewInMemoryDatabase(logger *Logger, config *Config, metrics *Metrics) *InMemoryDatabase {
+	return &InMemoryDatabase{
 		logger:       logger,
 		config:       &config.Database,
 		metrics:      metrics,
@@ -33,8 +32,8 @@ func NewDatabase(logger *Logger, config *Config, metrics *Metrics) *Database {
 }
 
 // Initialize sets up the database connection (mock)
-func (d *Database) Initialize() error {
-	d.logger.Log("DATABASE", fmt.Sprintf("Initializing database with max connections: %d, timeout: %ds", 
+func (d *InMemoryDatabase) Initialize() error {
+	d.logger.Log("DATABASE", fmt.Sprintf("Initializing IN-MEMORY database with max connections: %d, timeout: %ds", 
 		d.config.MaxConnections, d.config.Timeout))
 	
 	if d.cacheEnabled {
@@ -47,14 +46,14 @@ func (d *Database) Initialize() error {
 }
 
 // Close shuts down the database connection
-func (d *Database) Close() error {
+func (d *InMemoryDatabase) Close() error {
 	d.logger.Log("DATABASE", "Closing database connection...")
 	// Mock cleanup logic
 	return nil
 }
 
 // GetUser retrieves a user by ID
-func (d *Database) GetUser(id string) (string, error) {
+func (d *InMemoryDatabase) GetUser(id string) (string, error) {
 	// Track the database query
 	if d.metrics != nil {
 		d.metrics.RecordDBQuery()

@@ -21,6 +21,7 @@ type ServerConfig struct {
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
+	Type           string `json:"type"`
 	MaxConnections int    `json:"max_connections"`
 	Timeout        int    `json:"timeout_seconds"`
 	CacheSize      int    `json:"cache_size"`
@@ -42,6 +43,7 @@ func LoadConfig(path string) (*Config, error) {
 			Port: "8080",
 		},
 		Database: DatabaseConfig{
+			Type:           "inmemory",
 			MaxConnections: 10,
 			Timeout:        30,
 			CacheSize:      100,

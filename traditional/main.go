@@ -14,26 +14,36 @@ func main() {
 	// 3. Create each dependency in the correct order
 	// 4. Handle initialization and cleanup manually
 	// 5. NOW WITH METRICS: Update EVERY constructor call!
-	
+	// 6. NEW COMPLEXITY: Add conditional logic for database type selection!
+
 	// Step 1: Load configuration
 	config, err := shared.LoadConfig("config.json")
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
-	
+
 	// Step 2: Create single logger - needs config
 	logger := shared.NewLogger(config)
-	
+
 	logger.Log("APP", "Loaded configuration")
-	logger.Log("APP", "Environment: " + config.App.Environment)
-	
+	logger.Log("APP", "Environment: "+config.App.Environment)
+
 	// Step 3: Create metrics collector - NEW DEPENDENCY!
 	metrics := shared.NewMetrics(config)
 	logger.Log("APP", "Created metrics collector")
 
 	// Step 4: Create database - NOW needs logger, config, AND metrics!
 	// BREAKING CHANGE: Had to update constructor call
-	db := shared.NewDatabase(logger, config, metrics)
+	// MORE COMPLEXITY: Now we need conditional logic for database type!
+	var db shared.Database
+	switch config.Database.Type {
+	case "persistent":
+		logger.Log("APP", "Creating persistent database")
+		db = shared.NewPersistentDatabase(logger, config, metrics)
+	default:
+		logger.Log("APP", "Creating in-memory database")
+		db = shared.NewInMemoryDatabase(logger, config, metrics)
+	}
 
 	// Manual initialization
 	if err := db.Initialize(); err != nil {
@@ -57,9 +67,10 @@ func main() {
 
 	logger.Log("APP", "Traditional setup complete - all dependencies manually wired")
 	logger.Log("APP", "Notice: We had to update EVERY constructor call to add metrics!")
-	logger.Log("APP", "Try: curl http://" + config.Server.Host + ":" + config.Server.Port + "/user?id=1")
-	logger.Log("APP", "Config: curl http://" + config.Server.Host + ":" + config.Server.Port + "/config")
-	logger.Log("APP", "Metrics: curl http://" + config.Server.Host + ":" + config.Server.Port + "/metrics")
+	logger.Log("APP", "Notice: We added conditional logic to select database implementation!")
+	logger.Log("APP", "Try: curl http://"+config.Server.Host+":"+config.Server.Port+"/user?id=1")
+	logger.Log("APP", "Config: curl http://"+config.Server.Host+":"+config.Server.Port+"/config")
+	logger.Log("APP", "Metrics: curl http://"+config.Server.Host+":"+config.Server.Port+"/metrics")
 
 	// Server runs forever (blocking)
 	if err := server.Start(); err != nil {

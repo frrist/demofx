@@ -15,8 +15,20 @@ func provideConfig() (*shared.Config, error) {
 
 // Database with automatic lifecycle and config injection
 // NOTE: Just added metrics parameter - fx provides it automatically!
-func provideDatabase(lc fx.Lifecycle, logger *shared.Logger, config *shared.Config, metrics *shared.Metrics) *shared.Database {
-	db := shared.NewDatabase(logger, config, metrics)
+// NEW: Now returns Database interface and selects implementation based on config
+// This is the ONLY place we need to change to switch database implementations!
+func provideDatabase(lc fx.Lifecycle, logger *shared.Logger, config *shared.Config, metrics *shared.Metrics) shared.Database {
+	// FX automatically selects the right database based on config!
+	var db shared.Database
+	
+	switch config.Database.Type {
+	case "persistent":
+		logger.Log("APP", "Using persistent database")
+		db = shared.NewPersistentDatabase(logger, config, metrics)
+	default:
+		logger.Log("APP", "Using in-memory database")
+		db = shared.NewInMemoryDatabase(logger, config, metrics)
+	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -71,6 +83,7 @@ func main() {
 	// 3. No manual passing of dependencies through constructors
 	// 4. Clean separation between wiring and business logic
 	// 5. ADDING METRICS: Just one line! No constructor changes needed!
+	// 6. DATABASE SWITCHING: Just update the provider function - zero impact on other code!
 
 	app := fx.New(
 		fx.NopLogger,
