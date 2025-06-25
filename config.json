@@ -1,0 +1,19 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": "9090"
+  },
+  "database": {
+    "max_connections": 20,
+    "timeout_seconds": 60,
+    "cache_size": 200
+  },
+  "app": {
+    "environment": "staging",
+    "log_level": "debug",
+    "features": {
+      "cache_enabled": true,
+      "rate_limiting": true
+    }
+  }
+}
