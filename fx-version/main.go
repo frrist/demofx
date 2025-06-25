@@ -14,8 +14,9 @@ func provideConfig() (*shared.Config, error) {
 }
 
 // Database with automatic lifecycle and config injection
-func provideDatabase(lc fx.Lifecycle, logger *shared.Logger, config *shared.Config) *shared.Database {
-	db := shared.NewDatabase(logger, config)
+// NOTE: Just added metrics parameter - fx provides it automatically!
+func provideDatabase(lc fx.Lifecycle, logger *shared.Logger, config *shared.Config, metrics *shared.Metrics) *shared.Database {
+	db := shared.NewDatabase(logger, config, metrics)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
@@ -36,9 +37,11 @@ func StartServer(lc fx.Lifecycle, server *shared.Server, logger *shared.Logger, 
 			logger.Log("APP", "FX loaded configuration automatically")
 			logger.Log("APP", "Environment: "+config.App.Environment)
 			logger.Log("APP", "Features: cache="+formatBool(config.App.Features["cache_enabled"])+
-				", rate_limiting="+formatBool(config.App.Features["rate_limiting"]))
+				", rate_limiting="+formatBool(config.App.Features["rate_limiting"])+
+				", metrics="+formatBool(config.App.Features["metrics_enabled"]))
 			logger.Log("APP", "Try: curl http://"+config.Server.Host+":"+config.Server.Port+"/user?id=1")
 			logger.Log("APP", "Config: curl http://"+config.Server.Host+":"+config.Server.Port+"/config")
+			logger.Log("APP", "Metrics: curl http://"+config.Server.Host+":"+config.Server.Port+"/metrics")
 
 			go func() {
 				if err := server.Start(); err != nil {
@@ -67,20 +70,22 @@ func main() {
 	// 2. Logger is created ONCE with config and injected everywhere
 	// 3. No manual passing of dependencies through constructors
 	// 4. Clean separation between wiring and business logic
+	// 5. ADDING METRICS: Just one line! No constructor changes needed!
 
 	app := fx.New(
 		fx.NopLogger,
 
 		// Provide all dependencies
 		fx.Provide(
-			provideConfig,   // Needs wrapper for config file path
+			provideConfig,   // Needs wrapper for config file path, since nothing provides the path param
 			provideDatabase, // Needs wrapper for lifecycle hooks
 		),
 
 		fx.Provide(
-			shared.NewLogger,      // Can use directly!
-			shared.NewUserService, // Can use directly!
-			shared.NewServer,      // Can use directly!
+			shared.NewLogger,
+			shared.NewMetrics,     // Just add this one line!
+			shared.NewUserService, // No changes needed - fx injects metrics automatically
+			shared.NewServer,      // No changes needed - fx injects metrics automatically
 		),
 
 		// Register the server startup - fx.Invoke runs this function

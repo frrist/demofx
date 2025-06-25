@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -11,13 +12,15 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	echo   *echo.Echo
-	logger *Logger
-	config *ServerConfig
+	echo    *echo.Echo
+	logger  *Logger
+	config  *ServerConfig
+	metrics *Metrics
 }
 
 // NewServer creates a new HTTP server with the given handlers
-func NewServer(userService *UserService, logger *Logger, config *Config) *Server {
+// NOTE: In v2, we added metrics parameter - yet another breaking change!
+func NewServer(userService *UserService, logger *Logger, config *Config, metrics *Metrics) *Server {
 	e := echo.New()
 	
 	// Disable Echo's default logger
@@ -27,6 +30,26 @@ func NewServer(userService *UserService, logger *Logger, config *Config) *Server
 	// Add middleware
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
+	
+	// Metrics middleware - track all HTTP requests
+	if metrics != nil {
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				start := time.Now()
+				err := next(c)
+				duration := time.Since(start)
+				
+				// Record metrics
+				path := c.Path()
+				if path == "" {
+					path = c.Request().URL.Path
+				}
+				metrics.RecordHTTPRequest(path, duration)
+				
+				return err
+			}
+		})
+	}
 	
 	// Custom logger middleware
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -47,11 +70,20 @@ func NewServer(userService *UserService, logger *Logger, config *Config) *Server
 	e.GET("/config", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, config)
 	})
+	
+	// Add metrics endpoint
+	e.GET("/metrics", func(c echo.Context) error {
+		if metrics == nil {
+			return c.String(http.StatusNotFound, "Metrics not enabled")
+		}
+		return c.String(http.StatusOK, metrics.GetStats())
+	})
 
 	return &Server{
-		echo:   e,
-		logger: logger,
-		config: &config.Server,
+		echo:    e,
+		logger:  logger,
+		config:  &config.Server,
+		metrics: metrics,
 	}
 }
 

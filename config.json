@@ -13,7 +13,8 @@
     "log_level": "debug",
     "features": {
       "cache_enabled": true,
-      "rate_limiting": true
+      "rate_limiting": true,
+      "metrics_enabled": true
     }
   }
 }

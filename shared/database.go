@@ -9,16 +9,19 @@ import (
 type Database struct {
 	logger         *Logger
 	config         *DatabaseConfig
+	metrics        *Metrics
 	users          map[string]string
 	cache          map[string]string
 	cacheEnabled   bool
 }
 
 // NewDatabase creates a new database instance
-func NewDatabase(logger *Logger, config *Config) *Database {
+// NOTE: In v2, we added metrics parameter - breaking change for traditional setup!
+func NewDatabase(logger *Logger, config *Config, metrics *Metrics) *Database {
 	return &Database{
 		logger:       logger,
 		config:       &config.Database,
+		metrics:      metrics,
 		cacheEnabled: config.App.Features["cache_enabled"],
 		users: map[string]string{
 			"1": "Alice",
@@ -52,11 +55,23 @@ func (d *Database) Close() error {
 
 // GetUser retrieves a user by ID
 func (d *Database) GetUser(id string) (string, error) {
+	// Track the database query
+	if d.metrics != nil {
+		d.metrics.RecordDBQuery()
+	}
+	
 	// Check cache first if enabled
 	if d.cacheEnabled {
 		if cached, ok := d.cache[id]; ok {
 			d.logger.Log("DATABASE", fmt.Sprintf("Cache hit for user ID: %s", id))
+			if d.metrics != nil {
+				d.metrics.RecordCacheHit()
+			}
 			return cached, nil
+		}
+		// Cache miss
+		if d.metrics != nil {
+			d.metrics.RecordCacheMiss()
 		}
 	}
 	

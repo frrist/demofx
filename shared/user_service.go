@@ -12,15 +12,18 @@ import (
 type UserService struct {
 	db           *Database
 	logger       *Logger
+	metrics      *Metrics
 	rateLimiting bool
 	lastRequest  time.Time
 }
 
 // NewUserService creates a new user service
-func NewUserService(db *Database, logger *Logger, config *Config) *UserService {
+// NOTE: In v2, we added metrics parameter - another breaking change!
+func NewUserService(db *Database, logger *Logger, config *Config, metrics *Metrics) *UserService {
 	return &UserService{
 		db:           db,
 		logger:       logger,
+		metrics:      metrics,
 		rateLimiting: config.App.Features["rate_limiting"],
 	}
 }
@@ -43,6 +46,11 @@ func (s *UserService) GetUserHandler(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Missing user ID")
 	}
 
+	// Track user lookup
+	if s.metrics != nil {
+		s.metrics.RecordUserLookup()
+	}
+	
 	user, err := s.db.GetUser(userID)
 	if err != nil {
 		s.logger.Log("USER", fmt.Sprintf("Error fetching user: %v", err))
