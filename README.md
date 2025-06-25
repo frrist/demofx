@@ -160,14 +160,46 @@ fx.WithLogger(func() fxevent.Logger {
 ```
 
 ### 7. Testing Benefits
-**Traditional**: Hard to mock dependencies
-**FX**: Easy to replace dependencies for testing
+
+See the test files for detailed examples:
+- `traditional/main_test.go` - Shows manual dependency wiring complexity
+- `fx-version/main_test.go` - Shows clean fx testing approach
+
+**Traditional**: Manual dependency wiring, hard to mock
 ```go
-fx.New(
-    fx.Replace(NewMockDatabase),
-    UserModule(),
-)
+// Must manually create all dependencies in order
+config := &shared.Config{...}
+logger := shared.NewLogger(config)
+metrics := shared.NewMetrics(config)
+mockDB := shared.NewMockDatabase()
+// Don't forget to initialize!
+err := mockDB.Initialize()
+// Manual cleanup required
+defer mockDB.Close()
 ```
+
+**FX**: Automatic injection, easy mocking
+```go
+app := fxtest.New(t,
+    fx.Provide(
+        provideTestConfig,
+        shared.NewLogger,
+        shared.NewMetrics,
+        func() shared.Database { return mockDB }, // Easy mock injection!
+    ),
+    fx.Populate(&userService),
+)
+// Lifecycle handled automatically!
+app.RequireStart()
+defer app.RequireStop()
+```
+
+Key testing advantages with fx:
+- Swap implementations with a single line
+- Automatic lifecycle management (no forgotten cleanup)
+- Test different configurations easily
+- Integration tests with minimal setup
+- Each test gets isolated dependency graph
 
 ### 8. Configuration Impact
 The demo shows how configuration affects behavior:
